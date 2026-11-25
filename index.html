@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Làng Đại Học 3D · Phố Sinh Viên (Nhóm 8)</title>
+  <meta name="description" content="Game mô phỏng 3D đời sống sinh viên Việt Nam qua 3 thời kỳ kinh tế: Bao cấp → Thị trường thả nổi → KTTT Định hướng XHCN (Chương 5, tiết 21–22).">
+  <meta name="theme-color" content="#bae6fd">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Sân khấu WebGL 3D toàn màn hình -->
+  <canvas id="scene-canvas" aria-label="Mô hình 3D Làng Đại Học tương tác"></canvas>
+
+  <!-- Ghim tên các khu đất nổi trên thế giới 3D -->
+  <div id="world-labels" class="world-labels" aria-hidden="false"></div>
+
+  <!-- Lớp hiệu ứng số nổi & huy hiệu mở khóa 3D -->
+  <div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
+
+  <!-- Thanh HUD nổi trên cùng -->
+  <header id="hud-top" class="hud-top hidden">
+    <div class="hud-row">
+      <div class="glass-pill stage-pill">
+        <span id="stage-dot" class="stage-dot"></span>
+        <span id="stage-pill-text">CHẶNG 1/3 · BAO CẤP</span>
+      </div>
+
+      <div class="hud-icon-group">
+        <button type="button" id="btn-time-toggle" class="glass-icon-btn" title="Đổi ánh sáng Sáng / Hoàng hôn" aria-label="Đổi ánh sáng Sáng hoặc Hoàng hôn">🌅</button>
+        <button type="button" id="btn-cam-reset" class="glass-icon-btn" title="Đặt lại góc nhìn 3D" aria-label="Đặt lại góc nhìn 3D">🎥</button>
+        <button type="button" id="btn-mute" class="glass-icon-btn" title="Bật/tắt âm thanh (M)" aria-label="Tắt âm thanh">🔊</button>
+        <button type="button" id="btn-home" class="glass-icon-btn" title="Về màn mở đầu" aria-label="Về màn mở đầu">⌂</button>
+      </div>
+    </div>
+
+    <div class="metrics-strip" role="region" aria-label="Ba chỉ số Làng Đại Học">
+      <div id="card-budget" class="glass-metric">
+        <span class="m-label">💰 Quỹ</span>
+        <span class="m-val-wrap">
+          <strong id="val-budget" class="m-val val-budget">40tr</strong>
+          <span id="delta-budget" class="m-delta"></span>
+        </span>
+      </div>
+      <div id="card-economy" class="glass-metric">
+        <span class="m-label">📈 Kinh tế</span>
+        <span class="m-val-wrap">
+          <strong id="val-economy" class="m-val val-econ">22</strong>
+          <span id="delta-economy" class="m-delta"></span>
+        </span>
+      </div>
+      <div id="card-life" class="glass-metric">
+        <span class="m-label">😊 Đời sống</span>
+        <span class="m-val-wrap">
+          <strong id="val-life" class="m-val val-life">44</strong>
+          <span id="delta-life" class="m-delta"></span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast gợi ý lý thuyết ngắn gọn -->
+  <div id="insight-toast" class="insight-toast hidden" role="status" aria-live="polite"></div>
+
+  <!-- Thanh điều khiển nổi dưới cùng theo từng chặng -->
+  <footer id="hud-bottom" class="hud-bottom hidden">
+    <!-- Chặng 1: Bao cấp -->
+    <div id="bar-stage-1" class="glass-dock hidden">
+      <div class="dock-stats-line">
+        <span>⏳ Xếp hàng căng tin: <strong id="s1-queue-count">3</strong> người</span>
+        <span>🍽️ Đã phục vụ: <strong id="s1-served-count">0</strong>/10</span>
+      </div>
+      <div class="dock-btn-row">
+        <button type="button" id="btn-serve" class="btn-solid btn-amber">
+          🎟️ Phát phiếu cơm <span class="kbd-chip">Space</span>
+        </button>
+        <button type="button" id="btn-next-s2" class="btn-solid btn-sky hidden">
+          Sang Chặng 2 →
+        </button>
+      </div>
+    </div>
+
+    <!-- Chặng 2: Thị trường thả nổi -->
+    <div id="bar-stage-2" class="glass-dock hidden">
+      <div class="wave-box">
+        <strong id="s2-wave-title" class="wave-title">Thị trường vừa mở cửa — quán xá mọc lên rất nhanh!</strong>
+        <p id="s2-wave-detail" class="wave-detail">Chạm vào các khu nhà để xem có can thiệp được không.</p>
+      </div>
+      <div class="dock-btn-row">
+        <button type="button" id="btn-s2-next" class="btn-solid btn-outline">
+          ⏭ Xem diễn biến tiếp
+        </button>
+        <button type="button" id="btn-next-s3" class="btn-solid btn-emerald hidden">
+          Bắt đầu Chặng 3 · Quy hoạch →
+        </button>
+      </div>
+    </div>
+
+    <!-- Chặng 3: Quy hoạch Phố Sinh Viên -->
+    <div id="bar-stage-3" class="glass-dock hidden">
+      <div class="s3-top-line">
+        <span id="s3-progress-text">👆 Chạm trực tiếp khu đất 3D hoặc chọn nhanh bên dưới (0/6)</span>
+        <span id="s3-chars-count" class="chars-mini-pill">0/5 đặc trưng</span>
+      </div>
+      <div id="s3-lot-chips" class="lot-chips-row" aria-label="Chọn nhanh 6 khu đất Làng Đại Học"></div>
+      <button type="button" id="btn-finish-s3" class="btn-solid btn-emerald hidden">
+        🎉 Hoàn tất · Xem Tổng Kết Chương 5 →
+      </button>
+    </div>
+  </footer>
+
+  <!-- Ngăn kéo chọn mô hình cho 1 khu đất ở Chặng 3 -->
+  <section id="lot-drawer" class="lot-drawer hidden" role="dialog" aria-modal="false" aria-labelledby="drawer-title">
+    <div class="drawer-head">
+      <div class="drawer-title-wrap">
+        <span id="drawer-icon" class="drawer-icon">🏠</span>
+        <div>
+          <h2 id="drawer-title" class="drawer-title">Khu Nhà Trọ &amp; KTX</h2>
+          <p id="drawer-current" class="drawer-current">Hiện tại: Tư nhân thả nổi</p>
+        </div>
+      </div>
+      <button type="button" id="btn-close-drawer" class="glass-icon-btn" aria-label="Đóng bảng chọn khu đất">✕</button>
+    </div>
+    <div id="drawer-options" class="drawer-options"></div>
+  </section>
+
+  <!-- Màn hình 1: Thẻ chào mừng nổi trên nền Làng ĐH 3D đang xoay -->
+  <div id="intro-overlay" class="center-backdrop" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+    <div class="glass-modal intro-card">
+      <div class="pill-group">
+        <span class="badge-pill badge-emerald">NHÓM 8 · CHƯƠNG 5, TIẾT 21–22</span>
+        <span class="badge-pill badge-sky">MÔ HÌNH 3D THỰC TẾ</span>
+      </div>
+      <h1 id="intro-title" class="modal-h1">LÀNG ĐẠI HỌC 3D</h1>
+      <p class="modal-sub">Phố Sinh Viên · Trải nghiệm 3 Thời Kỳ Kinh Tế</p>
+      <p class="modal-desc">
+        Tự tay quy hoạch <strong>Nhà trọ – KTX, Phố cơm trà sữa, Xe buýt 3.000đ, Khu việc làm, Thư viện &amp; Học bổng</strong> ngay trên mô hình 3D sống động!
+      </p>
+      <div class="tip-row">
+        <span>🖐️ Kéo để xoay bản đồ 3D</span>
+        <span>🔍 Lăn/chụm để zoom</span>
+        <span>👆 Chạm nhà để xây</span>
+      </div>
+      <button type="button" id="btn-start" class="btn-solid btn-emerald btn-lg">
+        ▶ Bắt đầu trải nghiệm 3 Chặng
+      </button>
+      <div class="quick-jump">
+        <span>Chiếu nhanh:</span>
+        <button type="button" class="chip-btn" data-jump-stage="1">Chặng 1</button>
+        <button type="button" class="chip-btn" data-jump-stage="2">Chặng 2</button>
+        <button type="button" class="chip-btn" data-jump-stage="3">Chặng 3</button>
+        <button type="button" class="chip-btn" id="btn-demo-summary">Xem mẫu tổng kết</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hộp thoại giới thiệu / chốt ý từng Chặng -->
+  <div id="stage-modal" class="center-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="stage-modal-title">
+    <div class="glass-modal stage-card">
+      <span id="stage-modal-badge" class="badge-pill badge-sky">CHẶNG 1 / 3</span>
+      <h2 id="stage-modal-title" class="modal-h2">Tem phiếu Làng Đại Học</h2>
+      <p id="stage-modal-body" class="modal-desc"></p>
+      <p id="stage-modal-obj" class="stage-obj-box"></p>
+      <button type="button" id="btn-stage-modal-ok" class="btn-solid btn-emerald">Tiếp tục</button>
+    </div>
+  </div>
+
+  <!-- Hộp thoại Tình huống Sinh viên Thực tế (Chặng 3) -->
+  <div id="event-modal" class="center-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+    <div class="glass-modal event-card">
+      <span id="event-badge" class="badge-pill badge-amber">TÌNH HUỐNG THỰC TẾ</span>
+      <h2 id="event-modal-title" class="modal-h2">Cò trọ thổi giá!</h2>
+      <p id="event-modal-prompt" class="modal-desc"></p>
+      <div id="event-choices" class="event-choices"></div>
+    </div>
+  </div>
+
+  <!-- Thanh nút nổi khi thu gọn Tổng kết để ngắm toàn cảnh 3D -->
+  <div id="peek-controls" class="peek-controls hidden">
+    <button type="button" id="btn-peek-sunset" class="reopen-pill">🌅 Hoàng hôn</button>
+    <button type="button" id="btn-reopen-summary" class="reopen-pill">
+      📊 Mở lại Bảng Tổng Kết
+    </button>
+  </div>
+
+  <!-- Bảng Tổng kết & Đối chiếu 3 Chặng + 5 Đặc trưng (có nút Xem toàn cảnh 3D) -->
+  <div id="summary-overlay" class="summary-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="summary-title">
+    <div class="glass-modal summary-card">
+      <div class="summary-top-actions">
+        <span id="summary-tier-badge" class="badge-pill badge-emerald">KIỂU MẪU XHCN</span>
+        <div class="summary-top-btns">
+          <button type="button" id="btn-peek-3d" class="chip-btn">👀 Xem toàn cảnh 3D</button>
+          <button type="button" id="btn-summary-home" class="chip-btn">⌂</button>
+        </div>
+      </div>
+
+      <h1 id="summary-title" class="modal-h2">Làng Đại Học Kiểu Mẫu Hài Hòa</h1>
+      <p id="summary-desc" class="modal-desc"></p>
+
+      <div class="summary-scores">
+        <div class="score-pill"><span>💰 Quỹ còn</span><strong id="sum-budget">19tr</strong></div>
+        <div class="score-pill"><span>📈 Kinh tế</span><strong id="sum-economy">100</strong></div>
+        <div class="score-pill"><span>😊 Đời sống SV</span><strong id="sum-life">100</strong></div>
+      </div>
+
+      <div class="compare-box">
+        <h2 class="sec-h2">So sánh Làng Đại Học qua 3 Thời Kỳ</h2>
+        <div id="compare-bars" class="compare-bars"></div>
+      </div>
+
+      <div class="chars-box">
+        <div class="chars-box-head">
+          <h2 class="sec-h2">5 Đặc trưng KTTT định hướng XHCN</h2>
+          <span id="sum-chars-count" class="badge-pill badge-sky">5/5</span>
+        </div>
+        <p class="tab-tip">Chạm vào từng ô để camera 3D bay tới khu phố tương ứng:</p>
+        <div id="sum-chars-grid" class="chars-grid-32" role="tablist" aria-label="Năm đặc trưng Chương 5"></div>
+        <div id="sum-char-detail" class="char-detail-box" role="tabpanel" tabindex="0" aria-live="polite"></div>
+      </div>
+
+      <div class="summary-footer">
+        <button type="button" id="btn-open-review" class="btn-solid btn-outline">📖 Ôn nhanh Chương 5</button>
+        <button type="button" id="btn-replay-s3" class="btn-solid btn-emerald">↻ Quy hoạch lại Chặng 3</button>
+      </div>
+      <button type="button" id="btn-replay-all" class="btn-link">⏮ Chơi lại từ Chặng 1</button>
+    </div>
+  </div>
+
+  <!-- Modal Ôn nhanh Chương 5 -->
+  <div id="review-modal" class="center-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="review-title">
+    <div class="glass-modal review-card">
+      <div class="review-head">
+        <div>
+          <span class="badge-pill badge-sky">CHƯƠNG 5 · TIẾT 21–22</span>
+          <h2 id="review-title" class="modal-h2">Tổng hợp Lý thuyết &amp; Phản biện</h2>
+        </div>
+        <button type="button" id="btn-close-review" class="glass-icon-btn" aria-label="Đóng bảng ôn nhanh">✕</button>
+      </div>
+      <div id="review-body" class="review-body"></div>
+      <button type="button" id="btn-close-review-bottom" class="btn-solid btn-emerald">Quay lại Tổng kết</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
